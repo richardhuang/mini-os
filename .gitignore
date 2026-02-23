@@ -1,0 +1,34 @@
+# Rust
+/target/
+**/target/
+
+# Bootimage
+*.bin
+
+# Rustup
+.rustup/
+
+# Cargo
+Cargo.lock
+
+# Build
+*.o
+*.a
+*.so
+*.dylib
+
+# Toolchains
+.cargo/
+
+# JSON target spec
+*.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
