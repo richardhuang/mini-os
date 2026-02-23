@@ -17,9 +17,6 @@ Cargo.lock
 *.so
 *.dylib
 
-# Toolchains
-.cargo/
-
 # JSON target spec
 *.json
 
