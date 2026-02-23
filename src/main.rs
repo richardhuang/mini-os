@@ -1,57 +1,87 @@
 #![no_std]
 #![no_main]
-#![feature(abi_x86_interrupt)]
-#![feature(alloc_error_handler)]
 
-extern crate alloc;
-
+use core::fmt::{self, Write};
 use core::panic::PanicInfo;
+use bootloader::BootInfo;
+use x86_64::instructions::port::Port;
 
-mod vga;
-mod gdt;
-mod interrupts;
-mod memory;
-mod fs;
+/// 串口输出
+struct Serial;
 
-/// 内核入口点
-#[no_mangle]
-pub extern "C" fn _start() -> ! {
-    // 初始化 VGA 输出
-    vga::init();
-    
-    // 打印欢迎信息
-    println!("\n================================");
-    println!("  Mini OS - Rust Operating System");
-    println!("================================\n");
-    
-    // 初始化 GDT
-    gdt::init();
-    
-    // 初始化中断
-    interrupts::init();
-    
-    // 初始化内存管理
-    memory::init();
-    
-    // 初始化简单文件系统
-    fs::init();
-    
-    // 显示系统信息
-    println!("[OK] System initialization complete!\n");
-    
-    // 运行 Hello World 程序
-    println!("Running Hello World program...\n");
-    fs::run_program("hello");
-    
-    println!("\nSystem halted. Press Ctrl+A X to exit QEMU.");
-    
-    // 进入无限循环
-    loop {}
+impl Serial {
+    unsafe fn init() {
+        Port::new(0x3f9 + 1).write(0x00u8);
+        Port::new(0x3f9 + 3).write(0x80u8);
+        Port::new(0x3f9 + 0).write(0x01u8);
+        Port::new(0x3f9 + 1).write(0x00u8);
+        Port::new(0x3f9 + 3).write(0x03u8);
+        Port::new(0x3f9 + 2).write(0x07u8);
+        Port::new(0x3f9 + 4).write(0x03u8);
+        Port::new(0x3f9 + 1).write(0x01u8);
+    }
+
+    fn write_byte(byte: u8) {
+        unsafe {
+            let mut lsr: Port<u8> = Port::new(0x3f9 + 5);
+            let mut data: Port<u8> = Port::new(0x3f9);
+            while lsr.read() & 0x20 == 0 {}
+            data.write(byte);
+        }
+    }
 }
 
-/// Panic 处理函数
+impl Write for Serial {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for byte in s.bytes() {
+            Serial::write_byte(byte);
+        }
+        Ok(())
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref SERIAL: spin::Mutex<Serial> = spin::Mutex::new(Serial);
+}
+
+fn print(s: &str) {
+    let mut serial = SERIAL.lock();
+    let _ = serial.write_str(s);
+}
+
+#[no_mangle]
+pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
+    unsafe {
+        Serial::init();
+    }
+    
+    print("\n[BOOT] Mini OS starting...\n");
+    
+    print("\n================================\n");
+    print("  Mini OS - Rust Operating System\n");
+    print("================================\n\n");
+    
+    print("[OK] System initialized\n\n");
+    print("Hello World!\n\n");
+    print("System running successfully!\n\n");
+    print("Press Ctrl+A X to exit QEMU\n");
+    
+    // 打印内存映射信息
+    print("\nMemory regions:\n");
+    for (i, _region) in boot_info.memory_map.iter().enumerate() {
+        if i >= 10 { break; }
+        print("  Region\n");
+    }
+    
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
+
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    println!("\n!!! PANIC !!!\n{}\n", info);
-    loop {}
+fn panic(_info: &PanicInfo) -> ! {
+    print("\n\n!!! PANIC !!!\n");
+    loop {
+        x86_64::instructions::hlt();
+    }
 }

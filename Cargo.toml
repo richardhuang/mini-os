@@ -5,11 +5,10 @@ edition = "2021"
 
 [dependencies]
 bootloader = "0.9"
-volatile = "0.3"
-spin = "0.9.8"
 x86_64 = "0.14.10"
-lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-pic8259 = { version = "0.10.2", default-features = false }
+spin = "0.9.8"
+volatile = "0.4"
+lazy_static = { version = "1.4", features = ["spin_no_std"] }
 
 [profile.dev]
 panic = "abort"
